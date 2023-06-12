@@ -1,60 +1,30 @@
 from flask_restx import Namespace, Resource
-import requests
-from bs4 import BeautifulSoup
-import json
+from http import HTTPStatus
+from flask import request
 
-from domain.naver_rank.dto.NaverRankDto import NaverRankDto
+from domain.message.dto.MessageDto import MessageDto
+from domain.naver_rank.service.NaverRankService import NaverRankService
 
 NaverRankApi = Namespace('NaverRankApi')
 
-@NaverRankApi.route('/', methods=['GET'])
-class search_rank(Resource):
+@NaverRankApi.route('', methods=['GET'])
+class NaverRank(Resource):
     def get(self):
-        keyword="고양이 장난감"
-        storeName="쿠팡"
-    
-        url = f"https://search.shopping.naver.com/search/all?query={keyword}&bt=-1&frm=NVSCPRO"
-        response = requests.get(url)
+        message = MessageDto()
 
-        dom = BeautifulSoup(response.text, "html.parser")
-        type(dom)
+        keyword = request.args.get("keyword", default="", type=str)
+        mallName = request.args.get("mallName", default="", type=str)
 
-        resultObj = dom.select_one("#__NEXT_DATA__").text
-        productJsonObj = json.loads(resultObj)
-        productList = productJsonObj['props']['pageProps']['initialState']['products']['list']
+        # 파라미터로 넘어온 검색값이 공백인 경우
+        if(keyword == "" or mallName == ""):
+            message.setData(None)
+            message.setStatus(HTTPStatus.OK)
+            message.setMessage("no_contents")
+            return message.__dict__, message.statusCode
 
-        # 여러 상품이 노출될 수 있으므로 list로 return
-        result = []
-        rank = 0
-        for productObj in productList: 
-            dto = NaverRankDto(storeName)
-            item = productObj['item']
-            rank += 1
+        message.setData(NaverRankService.searchRank(keyword, mallName))
+        message.setStatus(HTTPStatus.OK)
+        message.setMessage("success")
 
-            if (item['mallName'] == storeName):
-                dto.setRank(rank)
-                dto.setExcludedAdRank(item['rank'])
-                dto.setProductTitle(item['productTitle'])
-                dto.setPrice(item['price'])
-                if('adId' in item):
-                    dto.setIsAdvertising(True)
-
-            if (item['lowMallList'] is not None):
-                comparitionList = item['lowMallList']
-                comparitionRank = 0
-                for comparitionItem in comparitionList:
-                    comparitionRank += 1
-                    if (comparitionItem['name'] == storeName):
-                        dto.setRank(rank)
-                        dto.setExcludedAdRank(item['rank'])
-                        dto.setIsPriceComparision(True)
-                        dto.setComparisionRank(comparitionRank)
-                        dto.setProductTitle(item['productTitle'])
-                        dto.setPrice(item['price'])
-                        break
+        return message.__dict__, message.statusCode
         
-            if dto.rank != 0: 
-                result.append(dto)
-    
-        print(result)
-        return "hi"
