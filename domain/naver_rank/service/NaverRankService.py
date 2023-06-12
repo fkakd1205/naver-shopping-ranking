@@ -1,22 +1,21 @@
 import requests
 from bs4 import BeautifulSoup
 import json
+import time
+from concurrent import futures
 
 from domain.naver_rank.dto.NaverRankDto import NaverRankDto
 
 DEFAULT_PAGINGSIZE = 80
 
 class NaverRankService():
-    def searchRank(keyword, mallName):
-        pageIndex = 2
-
+    def searchCurrentPageRank(keyword, mallName, pageIndex):
         url = ("https://search.shopping.naver.com/search/all"
         f"?query={keyword}"
         f"&frm=NVSCPRO"
         f"&pagingIndex={pageIndex}"
         f"&pagingSize={DEFAULT_PAGINGSIZE}")
 
-        print(url)
         response = requests.get(url)
 
         dom = BeautifulSoup(response.text, "html.parser")
@@ -39,6 +38,8 @@ class NaverRankService():
                 dto.setExcludedAdRank(item['rank'])
                 dto.setProductTitle(item['productTitle'])
                 dto.setPrice(item['price'])
+                dto.setPage(pageIndex)
+                dto.setMallProductId(item['mallProductId'])
                 if('adId' in item):
                     dto.setIsAdvertising(True)
 
@@ -53,10 +54,26 @@ class NaverRankService():
                         dto.setIsPriceComparision(True)
                         dto.setComparisionRank(comparitionRank)
                         dto.setProductTitle(item['productTitle'])
-                        dto.setPrice(item['price'])
+                        dto.setPrice(comparitionItem['price'])
+                        dto.setPage(pageIndex)
+                        dto.setMallProductId(comparitionItem['mallPid'])
                         break
         
             if dto.rank != 0: 
                 result.append(dto.__dict__)
     
+        time.sleep(2)
         return result
+    
+    def searchRank(keyword, mallName):
+        with futures.ThreadPoolExecutor() as executor:
+            results = [executor.submit(NaverRankService.searchCurrentPageRank, keyword, mallName, i+1) for i in range(3)]
+
+        result = []
+        for f in futures.as_completed(results):
+            result.extend(f.result())
+        
+        return result
+
+
+        

@@ -1,6 +1,7 @@
 from flask_restx import Namespace, Resource
 from http import HTTPStatus
 from flask import request
+import time
 
 from domain.message.dto.MessageDto import MessageDto
 from domain.naver_rank.service.NaverRankService import NaverRankService
@@ -22,9 +23,13 @@ class NaverRank(Resource):
             message.setMessage("no_contents")
             return message.__dict__, message.statusCode
 
+        start = time.perf_counter()
         message.setData(NaverRankService.searchRank(keyword, mallName))
         message.setStatus(HTTPStatus.OK)
         message.setMessage("success")
+        finish = time.perf_counter()
+
+        print(finish - start)
 
         return message.__dict__, message.statusCode
         
