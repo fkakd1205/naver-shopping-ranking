@@ -24,12 +24,16 @@ class NaverRank(Resource):
             return message.__dict__, message.statusCode
 
         start = time.perf_counter()
-        message.setData(NaverRankService.searchRank(keyword, mallName))
-        message.setStatus(HTTPStatus.OK)
-        message.setMessage("success")
+        try:
+            message.setData(NaverRankService.searchRank(keyword, mallName))
+            message.setStatus(HTTPStatus.OK)
+            message.setMessage("success")
+        except Exception as e:
+            message.setData(None)
+            message.setStatus(HTTPStatus.OK)
+            message.setMessage(str(e))
         finish = time.perf_counter()
 
         print(finish - start)
-
         return message.__dict__, message.statusCode
         
