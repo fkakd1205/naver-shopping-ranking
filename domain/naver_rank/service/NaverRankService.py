@@ -5,6 +5,7 @@ import time
 from concurrent import futures
 
 from domain.naver_rank.dto.NaverRankDto import NaverRankDto
+from domain.exception.types.CustomException import CustomException
 
 DEFAULT_PAGINGSIZE = 80
 
@@ -63,30 +64,27 @@ class NaverRankService():
                             dto.setMallProductId(comparitionItem['mallPid'])
                             break
                         
-                if dto.rank != 0: 
+                if dto.rank != 0:
                     result.append(dto.__dict__)
 
             time.sleep(2)
             return result
         except KeyError as e:
-            raise Exception(f"not found value for {e}")
-        except Exception as e:
-            raise Exception(e)
+            raise CustomException(f"not found value for {e}")
+        except AttributeError as e:
+            raise CustomException(e)
 
     
     def searchRank(keyword, mallName):
-        try:
-            # 10페이지 검색 가능
-            with futures.ThreadPoolExecutor() as executor:
-                results = [executor.submit(NaverRankService.searchCurrentPageRank, keyword, mallName, i+1) for i in range(3)]
+        # 10페이지 검색 가능
+        with futures.ThreadPoolExecutor() as executor:
+            results = [executor.submit(NaverRankService.searchCurrentPageRank, keyword, mallName, i+1) for i in range(10)]
 
-            result = []
-            for f in futures.as_completed(results):
-                result.extend(f.result())
-        
-            return result
-        except Exception as e:
-            raise Exception(e)
+        result = []
+        for f in futures.as_completed(results):
+            result.extend(f.result())
+
+        return result
 
 
         
