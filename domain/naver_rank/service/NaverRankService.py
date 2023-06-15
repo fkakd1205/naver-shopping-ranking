@@ -12,13 +12,17 @@ from domain.exception.types.CustomException import CustomException
 from utils.proxy.ProxyUtils import ProxyUtils
 
 DEFAULT_PAGINGSIZE = 80
-MAX_SEARCH_PAGE_SIZE = 5
+MAX_SEARCH_PAGE_SIZE = 4
 
 proxyServerIndex = 0
 lock = Lock()
 
 class NaverRankService():
     proxies = ProxyUtils.getProxyList()
+    # proxies = ProxyUtils.getProxyList2()
+    # proxies = ProxyUtils.getProxyList3()
+    # proxies = ProxyUtils.getProxyList4()
+    # proxies = ProxyUtils.getProxyList5()
 
     # proxy server address 순서대로 조회
     def getProxyServerAddress(self):
@@ -39,7 +43,7 @@ class NaverRankService():
 
         return proxyAddress
 
-    def searchCurrentPageRank(keyword, mallName, pageIndex):
+    def requestSearchPage(keyword, pageIndex):
         service = NaverRankService()
         
         url = ("https://search.shopping.naver.com/search/all"
@@ -65,11 +69,13 @@ class NaverRankService():
             headers = {"user-agent": UserAgent().random}
 
             try:
-                # proxy 서버로 naver ranking 요청
                 response = requests.get(url, proxies=proxy, headers=headers, verify=False, timeout=5)
             except (ProxyError, SSLError, ConnectTimeout, ReadTimeout, ConnectionError):
                 # proxy connection error 발생 시 다음 프록시 요청
                 print("proxy connection error.")
+                continue
+            except ChunkedEncodingError:
+                print("chunked encoding error.")
                 continue
         
             # # api 요청 거절 시 예외 처리
@@ -83,14 +89,17 @@ class NaverRankService():
                 productJsonObj = json.loads(resultObj)
             
                 productList = productJsonObj['props']['pageProps']['initialState']['products']['list']
-            except (KeyError, AttributeError, UnboundLocalError):
-                # request api attribute가 올바르지 않는다면 다음 프록시 요청
+            except (KeyError, AttributeError, UnboundLocalError, TypeError):
+                # 응답이 올바르지만, request api attribute가 올바르지 않는다면 다음 프록시 요청
                 print("api attribute error.")
                 continue
 
             # api response가 올바르다면 while문 탈출
             if(response.status_code == 200): break
-        
+
+        return productList
+
+    def searchCurrentPageRank(productList, mallName, pageIndex):
         try:
             # 여러 상품이 노출될 수 있으므로 list로 return
             result = []
@@ -138,14 +147,24 @@ class NaverRankService():
 
     
     def searchRank(keyword, mallName):
+        # proxyServerIndex 초기화ㄴ
+        global proxyServerIndex
+        proxyServerIndex = 0
+
         # 멀티쓰레드 생성
         # MAX_SEARCH_PAGE_SIZE 만큼 반복
+        rankDtos = []
         with futures.ThreadPoolExecutor() as executor:
-            results = [executor.submit(NaverRankService.searchCurrentPageRank, keyword, mallName, i+1) for i in range(MAX_SEARCH_PAGE_SIZE)]
+            for i in range(MAX_SEARCH_PAGE_SIZE):
+                pageIndex = i + 1
+                # proxy 이용해 naver ranking 조회
+                searchPageResponse = executor.submit(NaverRankService.requestSearchPage, keyword, pageIndex)
+                # 조회된 결과로 NaverRankDtos 추출
+                rankDto = executor.submit(NaverRankService.searchCurrentPageRank, searchPageResponse.result(), mallName, pageIndex)
+                rankDtos.append(rankDto)
 
         result = []
-        for f in futures.as_completed(results):
+        for f in futures.as_completed(rankDtos):
             result.extend(f.result())
 
         return result
-        
