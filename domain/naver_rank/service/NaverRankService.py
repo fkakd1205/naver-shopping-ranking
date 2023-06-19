@@ -3,49 +3,22 @@ from bs4 import BeautifulSoup
 import json
 import time
 from concurrent import futures
-from threading import Lock
 from requests.exceptions import ProxyError, SSLError, ConnectTimeout, ReadTimeout, ChunkedEncodingError, ConnectionError
 from fake_useragent import UserAgent
 
 from domain.naver_rank.dto.NaverRankDto import NaverRankDto
 from domain.exception.types.CustomException import CustomException
-from utils.proxy.ProxyUtils import ProxyUtils
+# from utils.proxy.ProxyUtils import ProxyUtils
+from utils.proxy.ProxyUtilsV2 import ProxyUtilsV2
 
 DEFAULT_PAGINGSIZE = 80
-MAX_SEARCH_PAGE_SIZE = 4
+MAX_SEARCH_PAGE_SIZE = 3
 
 proxyServerIndex = 0
-lock = Lock()
 
 class NaverRankService():
-    proxies = ProxyUtils.getProxyList()
-    # proxies = ProxyUtils.getProxyList2()
-    # proxies = ProxyUtils.getProxyList3()
-    # proxies = ProxyUtils.getProxyList4()
-    # proxies = ProxyUtils.getProxyList5()
-
-    # proxy server address 순서대로 조회
-    def getProxyServerAddress(self):
-        global proxyServerIndex
-        proxyList = self.proxies
-
-        # thread lock 설정. proxyServerIndex를 순서대로 가져오기 위해
-        lock.acquire()
-        print(proxyServerIndex)
-        if(len(proxyList) <= proxyServerIndex):
-            lock.release()
-            raise CustomException("can't connect all proxy servers.")
-        
-        proxyAddress = proxyList[proxyServerIndex]
-        proxyServerIndex += 1
-        lock.release()
-        # thread lock 해제.
-
-        return proxyAddress
-
-    def requestSearchPage(keyword, pageIndex):
-        service = NaverRankService()
-        
+    
+    def getCurrentPageResponse(keyword, pageIndex, proxyUtils):
         url = ("https://search.shopping.naver.com/search/all"
         f"?frm=NVSCPRO"
         f"&origQuery={keyword}"
@@ -62,7 +35,8 @@ class NaverRankService():
         productList = []
         # 프록시 서버를 이용해 api request가 성공할 때 까지
         while(True):
-            proxyAddress = service.getProxyServerAddress()
+            proxyAddress = proxyUtils.getProxyInOrder()
+            print(proxyAddress)
             proxy = {'http': proxyAddress, 'https': proxyAddress}
 
             # fake user agent setting
@@ -70,6 +44,7 @@ class NaverRankService():
 
             try:
                 response = requests.get(url, proxies=proxy, headers=headers, verify=False, timeout=5)
+                # response = requests.get(url, headers=headers, verify=False, timeout=5)
             except (ProxyError, SSLError, ConnectTimeout, ReadTimeout, ConnectionError):
                 # proxy connection error 발생 시 다음 프록시 요청
                 print("proxy connection error.")
@@ -95,16 +70,19 @@ class NaverRankService():
                 continue
 
             # api response가 올바르다면 while문 탈출
-            if(response.status_code == 200): break
+            break
 
         return productList
 
-    def searchCurrentPageRank(productList, mallName, pageIndex):
+    def requestSearchPage(keyword, mallName, pageIndex, proxyUtils):
+        # naver ranking page response
+        searchResponse = NaverRankService.getCurrentPageResponse(keyword, pageIndex, proxyUtils)
+
         try:
             # 여러 상품이 노출될 수 있으므로 list로 return
             result = []
             rank = 0
-            for productObj in productList: 
+            for productObj in searchResponse: 
                 dto = NaverRankDto(mallName)
                 item = productObj['item']
                 rank += 1
@@ -143,28 +121,20 @@ class NaverRankService():
         except KeyError as e:
             raise CustomException(f"not found value for {e}")
         except AttributeError as e:
-            raise CustomException(e)
-
+            raise CustomException(e)        
     
     def searchRank(keyword, mallName):
-        # proxyServerIndex 초기화ㄴ
-        global proxyServerIndex
-        proxyServerIndex = 0
+        proxyUtils = ProxyUtilsV2()
 
         # 멀티쓰레드 생성
         # MAX_SEARCH_PAGE_SIZE 만큼 반복
         rankDtos = []
         with futures.ThreadPoolExecutor() as executor:
-            for i in range(MAX_SEARCH_PAGE_SIZE):
-                pageIndex = i + 1
-                # proxy 이용해 naver ranking 조회
-                searchPageResponse = executor.submit(NaverRankService.requestSearchPage, keyword, pageIndex)
-                # 조회된 결과로 NaverRankDtos 추출
-                rankDto = executor.submit(NaverRankService.searchCurrentPageRank, searchPageResponse.result(), mallName, pageIndex)
-                rankDtos.append(rankDto)
+            rankDtos = [executor.submit(NaverRankService.requestSearchPage, keyword, mallName, i+1, proxyUtils) for i in range(MAX_SEARCH_PAGE_SIZE)]
 
-        result = []
+        results = []
         for f in futures.as_completed(rankDtos):
-            result.extend(f.result())
+            results.extend(f.result())
 
-        return result
+        
+        return results

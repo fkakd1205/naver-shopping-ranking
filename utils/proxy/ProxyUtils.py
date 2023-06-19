@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 from domain.exception.types.CustomException import CustomException
 
 class ProxyUtils():
+    
     def getProxyList():
         try:
             url = "https://free-proxy-list.net"
@@ -51,20 +52,19 @@ class ProxyUtils():
         except AttributeError as e:
             raise CustomException(e)
         
-    # FORBIDDEN
+    # RROXY CONNECTION ERROR
     def getProxyList3():
         try:
-            url = "https://proxyhub.me/ko/kr-https-proxy-list.htmls"
-            print(url)
+            # url = "https://proxyhub.me/ko/kr-https-proxy-list.htmls"
+            # url = "https://proxyhub.me/"
+            url = "https://proxyhub.me/en/all-https-proxy-list.html"
             response = requests.get(url)
-            print(response)
 
             if(response.status_code != 200):
                 raise CustomException("request error.")
 
             dom = BeautifulSoup(response.text, "html.parser")
             proxyList = dom.select("#main > div > div.list.table-responsive > table > tbody > tr")
-            print(proxyList)
 
             result = []
             for listEl in proxyList:
@@ -84,7 +84,6 @@ class ProxyUtils():
         try:
             url = "https://premproxy.com/list/"
             response = requests.get(url)
-            print(response)
 
             if(response.status_code != 200):
                 raise CustomException("request error.")
@@ -104,6 +103,7 @@ class ProxyUtils():
         except AttributeError as e:
             raise CustomException(e)
         
+    # PROXY CONNECTION ERRROR
     def getProxyList5():
         try:
             url = "https://www.freeproxylists.net/?c=&pt=&pr=HTTPS&a%5B%5D=0&a%5B%5D=1&a%5B%5D=2&u=0"
@@ -113,9 +113,7 @@ class ProxyUtils():
                 raise CustomException("request error.")
 
             dom = BeautifulSoup(response.text, "html.parser")
-            print(dom)
             proxyList = dom.select("body > div:nth-child(3) > div:nth-child(2) > table > tbody > tr")
-            print(proxyList)
 
             result = []
             count = 0

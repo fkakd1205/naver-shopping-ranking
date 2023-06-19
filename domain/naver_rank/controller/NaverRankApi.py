@@ -31,3 +31,4 @@ class NaverRank(Resource):
 
         print(finish - start)
         return message.__dict__, message.statusCode
+        
