@@ -23,10 +23,12 @@ class NaverRankService():
 
     def getCurrentPageResponse(self, pageIndex, proxyUtils):        
         params = {
-            'frm': 'NVSCPRO',
+            'frm': 'NVSHTTL',
             'pagingIndex': pageIndex,
             'pagingSize': DEFAULT_PAGINGSIZE,
-            'query': self.keyword
+            'query': self.keyword,
+            'sort': 'rel',
+            'productSet': 'total',
         }
 
         response = None
@@ -68,6 +70,7 @@ class NaverRankService():
             # api response가 올바르다면 while문 탈출
             break
         
+        proxyUtils.raiseProxyPriority(proxyAddress)
         return productList
 
     def requestSearchPage(self, pageIndex, proxyUtils):

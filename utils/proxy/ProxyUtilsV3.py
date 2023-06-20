@@ -28,10 +28,13 @@ class ProxyUtils():
     def refreshProxy(self):
         """
         proxies의 isConnected를 모두 초기화
+        우선순위가 큰 순으로 재정렬
         """
         result = []
-        for p in self.proxies:
-            result.append({'proxy': p.get('proxy'), 'isConnected': False})
+        proxies = self.proxies
+        proxies.sort(key=lambda p: p.get('priority'), reverse=True)
+        for p in proxies:
+            result.append({'proxy': p.get('proxy'), 'isConnected': False, 'priority': p.get('priority')})
         
         self.proxies = result
 
@@ -46,6 +49,18 @@ class ProxyUtils():
 
         self.proxies = result
         
+    def raiseProxyPriority(self, proxy):
+        """
+        요청이 성공한 proxy의 우선순위를 증가
+        """
+        result = []
+        for p in self.proxies:
+            if(p.get('proxy') == proxy):
+                result.append({'proxy': p.get('proxy'), 'isConnected': False, 'priority': p.get('priority') + 1})
+                continue
+            result.append(p)
+
+        self.proxies = result
         
     def subSearchableCount(self):
         self.searchableCount -= 1
@@ -66,7 +81,7 @@ class ProxyUtils():
                 if(listEl.select_one(".hx").text == "yes"):
                     ip = listEl.select_one("td:nth-child(1)").text
                     port = listEl.select_one("td:nth-child(2)").text
-                    result.append({'proxy': f"http://{ip}:{port}", 'isConnected': False})
+                    result.append({'proxy': f"http://{ip}:{port}", 'isConnected': False, 'priority': 0})
 
             return result
         except KeyError as e:
