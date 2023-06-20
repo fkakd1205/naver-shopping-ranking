@@ -3,6 +3,8 @@ from bs4 import BeautifulSoup
 
 from domain.exception.types.CustomException import CustomException
 
+MULTIPLE_COUNT = 5
+
 class ProxyUtils():
     """
     proxies : dict
@@ -11,16 +13,19 @@ class ProxyUtils():
     argument -- requestCount
 
     __init__(self, requestCount) : reuqestCount를 전달받아 searchableCount(검색가능 카운트) 설정
-    refresh(self) : proxies를 초기화. {proxy: 기존 proxy server, isConnected: False}로 업데이트
+    refreshProxy(self) : proxies를 초기화. {proxy: 기존 proxy server, isConnected: False}로 업데이트
+    removeForbiddenProxy(self, proxy) : 금지된 proxy를 전달받아 proxies에서 제거
     subSearchableCount(self) : searchableCount를 1 감소
     Return: ProxyUtils
     """
     def __init__(self, requestCount):
         proxyDict = ProxyUtils.initProxies()
-        self.proxies = proxyDict
-        self.searchableCount = (requestCount * 3) if (requestCount * 3) > len(proxyDict) else len(proxyDict)
+        reqCount = (requestCount * MULTIPLE_COUNT) if (requestCount * MULTIPLE_COUNT) > len(proxyDict) else len(proxyDict)
 
-    def refresh(self):
+        self.proxies = proxyDict
+        self.searchableCount = reqCount
+
+    def refreshProxy(self):
         """
         proxies의 isConnected를 모두 초기화
         """
@@ -30,6 +35,18 @@ class ProxyUtils():
         
         self.proxies = result
 
+    def removeForbiddenProxy(self, proxy):
+        """
+        forbidden proxy 제거
+        """
+        result =[]
+        for p in self.proxies:
+            if(p.get('proxy') != proxy):
+                result.append(p)
+
+        self.proxies = result
+        
+        
     def subSearchableCount(self):
         self.searchableCount -= 1
 
@@ -78,13 +95,8 @@ class ProxyUtils():
         
         # proxies를 모두 연결한 경우, refresh시켜 isConnected초기화
         if proxyAddress is None:
-            self.refresh()
-            for proxy in self.proxies:
-                if(proxy.get('isConnected') == False):
-                    proxy['isConnected'] = True
-                    proxyAddress = proxy.get('proxy')
-                    self.subSearchableCount()
-                    break
+            self.refreshProxy()
+            return self.getProxyInOrder()
 
         return proxyAddress
     

@@ -17,12 +17,16 @@ NAVER_SHOPPINT_RANK = "https://search.shopping.naver.com/search/all"
 
 class NaverRankService():
 
-    def getCurrentPageResponse(keyword, pageIndex, proxyUtils):        
+    def __init__(self, keyword, mallName):
+        self.keyword = keyword
+        self.mallName = mallName
+
+    def getCurrentPageResponse(self, pageIndex, proxyUtils):        
         params = {
             'frm': 'NVSCPRO',
             'pagingIndex': pageIndex,
             'pagingSize': DEFAULT_PAGINGSIZE,
-            'query': keyword
+            'query': self.keyword
         }
 
         response = None
@@ -44,8 +48,10 @@ class NaverRankService():
         
             # api 요청 거절 시 예외 처리
             if(response.status_code != 200):
+                proxyUtils.removeForbiddenProxy(proxyAddress)
                 print("api request error.")
                 continue
+                # raise CustomException("api request error.")
         
             try:
                 dom = BeautifulSoup(response.text, "html.parser")
@@ -61,23 +67,23 @@ class NaverRankService():
 
             # api response가 올바르다면 while문 탈출
             break
-
+        
         return productList
 
-    def requestSearchPage(keyword, mallName, pageIndex, proxyUtils):
+    def requestSearchPage(self, pageIndex, proxyUtils):
         # naver ranking page response
-        searchResponse = NaverRankService.getCurrentPageResponse(keyword, pageIndex, proxyUtils)
+        searchResponse = self.getCurrentPageResponse(pageIndex, proxyUtils)
 
         try:
             # 여러 상품이 노출될 수 있으므로 list로 return
             result = []
             rank = 0
             for productObj in searchResponse: 
-                dto = NaverRankDto(mallName)
+                dto = NaverRankDto(self.mallName)
                 item = productObj['item']
                 rank += 1
 
-                if (item['mallName'] == mallName):
+                if (item['mallName'] == self.mallName):
                     dto.setRank(rank)
                     dto.setExcludedAdRank(item['rank'])
                     dto.setProductTitle(item['productTitle'])
@@ -92,7 +98,7 @@ class NaverRankService():
                     comparitionRank = 0
                     for comparitionItem in comparitionList:
                         comparitionRank += 1
-                        if (comparitionItem['name'] == mallName):
+                        if (comparitionItem['name'] == self.mallName):
                             dto.setRank(rank)
                             dto.setExcludedAdRank(item['rank'])
                             dto.setIsPriceComparision(True)
@@ -105,7 +111,7 @@ class NaverRankService():
                        
                 if dto.rank != 0:
                     result.append(dto.__dict__)
-
+            
             time.sleep(2)
             return result
         except KeyError as e:
@@ -113,18 +119,17 @@ class NaverRankService():
         except AttributeError as e:
             raise CustomException(e)        
     
-    def searchRank(keyword, mallName):
+    def searchRank(self):
         proxyUtils = ProxyUtils(MAX_SEARCH_PAGE_SIZE)
 
         # 멀티쓰레드 생성
         # MAX_SEARCH_PAGE_SIZE 만큼 반복
         rankDtos = []
         with futures.ThreadPoolExecutor() as executor:
-            rankDtos = [executor.submit(NaverRankService.requestSearchPage, keyword, mallName, i+1, proxyUtils) for i in range(MAX_SEARCH_PAGE_SIZE)]
+            rankDtos = [executor.submit(self.requestSearchPage, i+1, proxyUtils) for i in range(MAX_SEARCH_PAGE_SIZE)]
 
-        results = []
+        results = [] 
         for f in futures.as_completed(rankDtos):
             results.extend(f.result())
-
         
         return results
