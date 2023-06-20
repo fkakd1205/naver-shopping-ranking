@@ -4,7 +4,8 @@ from flask import request
 import time
 
 from domain.message.dto.MessageDto import MessageDto
-from domain.naver_rank.service.NaverRankService import NaverRankService
+# from domain.naver_rank.service.NaverRankService import NaverRankService
+from domain.naver_rank.service.NaverRankServiceV2 import NaverRankService
 
 NaverRankApi = Namespace('NaverRankApi')
 
