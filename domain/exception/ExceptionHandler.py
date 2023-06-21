@@ -14,6 +14,14 @@ def ExceptionHandler(app):
         message.setStatus(HTTPStatus.BAD_REQUEST)
         message.setMessage(str(e))
         return message.__dict__, message.statusCode
+    
+    @app.errorhandler(TimeoutError)
+    def TimeoutExceptionHandler(e):
+        # traceback.print_exc()
+        message.setData(None)
+        message.setStatus(HTTPStatus.BAD_REQUEST)
+        message.setMessage(str(e))
+        return message.__dict__, message.statusCode
 
     # @app.errorhandler(Exception)
     # def CommonExceptionHandler(e):

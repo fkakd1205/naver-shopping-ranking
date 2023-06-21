@@ -9,13 +9,16 @@ from fake_useragent import UserAgent
 from domain.naver_rank.dto.NaverRankDto import NaverRankDto
 from domain.exception.types.CustomException import CustomException
 from utils.proxy.ProxyUtilsV3 import ProxyUtils
+from utils.time.TimeUtils import TimeUtils
 
 DEFAULT_PAGINGSIZE = 80
 MAX_SEARCH_PAGE_SIZE = 10
 
 NAVER_SHOPPINT_RANK = "https://search.shopping.naver.com/search/all"
+REQUEST_TIMEOUT_SIZE = 15
 
 class NaverRankService():
+    startTime = 0
 
     def __init__(self, keyword, mallName):
         self.keyword = keyword
@@ -35,6 +38,9 @@ class NaverRankService():
         productList = []
         # 프록시 서버를 이용해 api request가 성공할 때 까지
         while(True):
+            if(REQUEST_TIMEOUT_SIZE < TimeUtils.getDifferenceFromCurrentTime(NaverRankService.startTime)): 
+                raise TimeoutError
+
             proxyAddress = proxyUtils.getProxyInOrder()
             proxy = {'http': proxyAddress, 'https': proxyAddress}
             headers = {"user-agent": UserAgent().random}
@@ -67,6 +73,7 @@ class NaverRankService():
                 print("api attribute error.")
                 continue
 
+            print(proxyAddress + " success!!!")
             # api response가 올바르다면 while문 탈출
             break
         
@@ -120,19 +127,26 @@ class NaverRankService():
         except KeyError as e:
             raise CustomException(f"not found value for {e}")
         except AttributeError as e:
-            raise CustomException(e)        
-    
+            raise CustomException(e)
+
     def searchRank(self):
+        NaverRankService.startTime = time.perf_counter()
         proxyUtils = ProxyUtils(MAX_SEARCH_PAGE_SIZE)
 
         # 멀티쓰레드 생성
         # MAX_SEARCH_PAGE_SIZE 만큼 반복
         rankDtos = []
+        results = []
         with futures.ThreadPoolExecutor() as executor:
             rankDtos = [executor.submit(self.requestSearchPage, i+1, proxyUtils) for i in range(MAX_SEARCH_PAGE_SIZE)]
 
-        results = [] 
-        for f in futures.as_completed(rankDtos):
-            results.extend(f.result())
-        
+            try:
+                for f in futures.as_completed(rankDtos):
+                    results.extend(f.result())
+            except TimeoutError:
+                # wait=True로 설정한다면 실행중인 모든 작업이 완료될 때까지 호출이 반환되지 않는다
+                # cancel_futures가 True이면 보류 중인 모든 Future가 취소된다. 완료되거나 실행 중인 Future는 취소되지 않음
+                executor.shutdown(wait=False, cancel_futures=True)
+                raise TimeoutError("request timed out.")
+
         return results

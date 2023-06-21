@@ -1,5 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
+from requests.exceptions import ConnectTimeout, ConnectionError
 
 from domain.exception.types.CustomException import CustomException
 
@@ -15,6 +16,7 @@ class ProxyUtils():
     __init__(self, requestCount) : reuqestCount를 전달받아 searchableCount(검색가능 카운트) 설정
     refreshProxy(self) : proxies를 초기화. {proxy: 기존 proxy server, isConnected: False}로 업데이트
     removeForbiddenProxy(self, proxy) : 금지된 proxy를 전달받아 proxies에서 제거
+    raiseProxyPriority(self, proxy) : 요청이 성공된 proxy를 전달받아 우선순위 증가
     subSearchableCount(self) : searchableCount를 1 감소
     Return: ProxyUtils
     """
@@ -36,7 +38,7 @@ class ProxyUtils():
         for p in proxies:
             result.append({'proxy': p.get('proxy'), 'isConnected': False, 'priority': p.get('priority')})
         
-        self.proxies = result
+        self.setProxies(result)
 
     def removeForbiddenProxy(self, proxy):
         """
@@ -47,7 +49,7 @@ class ProxyUtils():
             if(p.get('proxy') != proxy):
                 result.append(p)
 
-        self.proxies = result
+        self.setProxies(result)
         
     def raiseProxyPriority(self, proxy):
         """
@@ -60,18 +62,21 @@ class ProxyUtils():
                 continue
             result.append(p)
 
-        self.proxies = result
+        self.setProxies(result)
         
     def subSearchableCount(self):
         self.searchableCount -= 1
 
+    def setProxies(self, proxies):
+        self.proxies = proxies
+
     def initProxies():
         try:
             url = "https://free-proxy-list.net"
-            response = requests.get(url)
+            response = requests.get(url, verify=False, timeout=3)
 
             if(response.status_code != 200):
-                raise CustomException("request error.")
+                raise CustomException("proxy list request error.")
 
             dom = BeautifulSoup(response.text, "html.parser")
             proxyList = dom.select("#list > div > div.table-responsive > div > table > tbody > tr")
@@ -84,6 +89,8 @@ class ProxyUtils():
                     result.append({'proxy': f"http://{ip}:{port}", 'isConnected': False, 'priority': 0})
 
             return result
+        except (ConnectionError, ConnectTimeout):
+            raise CustomException("proxy server search error.")
         except KeyError as e:
             raise CustomException(f"not found value for {e}")
         except AttributeError as e:
