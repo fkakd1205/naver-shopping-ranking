@@ -14,8 +14,8 @@ from utils.time.TimeUtils import TimeUtils
 DEFAULT_PAGINGSIZE = 80
 MAX_SEARCH_PAGE_SIZE = 10
 
-NAVER_SHOPPINT_RANK = "https://search.shopping.naver.com/search/all"
-REQUEST_TIMEOUT_SIZE = 15
+NAVER_SHOPPINT_RANK_URL = "https://search.shopping.naver.com/search/all"
+REQUEST_TIMEOUT_SIZE = 20
 
 class NaverRankService():
     startTime = 0
@@ -36,7 +36,7 @@ class NaverRankService():
 
         response = None
         productList = []
-        # 프록시 서버를 이용해 api request가 성공할 때 까지
+        # 프록시 서버를 이용해 api request가 성공할 때까지
         while(True):
             if(REQUEST_TIMEOUT_SIZE < TimeUtils.getDifferenceFromCurrentTime(NaverRankService.startTime)): 
                 raise TimeoutError
@@ -46,7 +46,7 @@ class NaverRankService():
             headers = {"user-agent": UserAgent().random}
 
             try:
-                response = requests.get(url=NAVER_SHOPPINT_RANK, proxies=proxy, headers=headers, verify=False, timeout=5, params=params)
+                response = requests.get(url=NAVER_SHOPPINT_RANK_URL, proxies=proxy, headers=headers, verify=False, timeout=5, params=params)
             except (ProxyError, SSLError, ConnectTimeout, ReadTimeout, ConnectionError):
                 print("proxy connection error.")
                 continue
@@ -54,34 +54,29 @@ class NaverRankService():
                 print("chunked encoding error.")
                 continue
         
-            # api 요청 거절 시 예외 처리
             if(response.status_code != 200):
                 proxyUtils.removeForbiddenProxy(proxyAddress)
                 print("api request error.")
                 continue
-                # raise CustomException("api request error.")
         
             try:
                 dom = BeautifulSoup(response.text, "html.parser")
-
                 resultObj = dom.select_one("#__NEXT_DATA__").text
                 productJsonObj = json.loads(resultObj)
-            
                 productList = productJsonObj['props']['pageProps']['initialState']['products']['list']
             except (KeyError, AttributeError, UnboundLocalError, TypeError):
                 # 응답이 올바르지만, request api attribute가 올바르지 않는다면 다음 프록시 요청
                 print("api attribute error.")
                 continue
-
-            print(proxyAddress + " success!!!")
-            # api response가 올바르다면 while문 탈출
+            
             break
         
+        # 정상적인 응답을 받은 proxy 서버의 우선순위 증가
         proxyUtils.raiseProxyPriority(proxyAddress)
         return productList
 
     def requestSearchPage(self, pageIndex, proxyUtils):
-        # naver ranking page response
+        # get response for naver ranking page
         searchResponse = self.getCurrentPageResponse(pageIndex, proxyUtils)
 
         try:
@@ -132,7 +127,7 @@ class NaverRankService():
     def searchRank(self):
         NaverRankService.startTime = time.perf_counter()
         proxyUtils = ProxyUtils(MAX_SEARCH_PAGE_SIZE)
-
+        
         # 멀티쓰레드 생성
         # MAX_SEARCH_PAGE_SIZE 만큼 반복
         rankDtos = []
@@ -145,7 +140,8 @@ class NaverRankService():
                     results.extend(f.result())
             except TimeoutError:
                 # wait=True로 설정한다면 실행중인 모든 작업이 완료될 때까지 호출이 반환되지 않는다
-                # cancel_futures가 True이면 보류 중인 모든 Future가 취소된다. 완료되거나 실행 중인 Future는 취소되지 않음
+                # cancel_futures가 True이면 보류 중인 모든 Future가 취소된다. 완료되거나 실행 중인 Future는 취소되지 않음.
+                # cancel_future가 False이면 보류 중인 Future가 취소되지 않는다. 대기상태는 계속해서 실행됨
                 executor.shutdown(wait=False, cancel_futures=True)
                 raise TimeoutError("request timed out.")
 
