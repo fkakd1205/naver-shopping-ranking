@@ -2,9 +2,9 @@ import requests
 from bs4 import BeautifulSoup
 import json
 import time
-from concurrent import futures
 from requests.exceptions import ProxyError, SSLError, ConnectTimeout, ReadTimeout, ChunkedEncodingError, ConnectionError
 from fake_useragent import UserAgent
+import asyncio
 
 from domain.naver_rank.dto.NaverRankDto import NaverRankDto
 from domain.exception.types.CustomException import CustomException
@@ -15,7 +15,7 @@ DEFAULT_PAGINGSIZE = 80
 MAX_SEARCH_PAGE_SIZE = 10
 
 NAVER_SHOPPINT_RANK_URL = "https://search.shopping.naver.com/search/all"
-REQUEST_TIMEOUT_SIZE = 20
+REQUEST_TIMEOUT_SIZE = 10
 
 class NaverRankService():
     startTime = 0
@@ -24,7 +24,7 @@ class NaverRankService():
         self.keyword = keyword
         self.mallName = mallName
 
-    def getCurrentPageResponse(self, pageIndex, proxyUtils):        
+    async def getCurrentPageResponse(self, pageIndex, proxyUtils):
         params = {
             'frm': 'NVSHTTL',
             'pagingIndex': pageIndex,
@@ -38,6 +38,7 @@ class NaverRankService():
         productList = []
         # 프록시 서버를 이용해 api request가 성공할 때까지
         while(True):
+            print(TimeUtils.getDifferenceFromCurrentTime(NaverRankService.startTime))
             if(REQUEST_TIMEOUT_SIZE < TimeUtils.getDifferenceFromCurrentTime(NaverRankService.startTime)): 
                 raise TimeoutError
 
@@ -47,6 +48,7 @@ class NaverRankService():
 
             try:
                 response = requests.get(url=NAVER_SHOPPINT_RANK_URL, proxies=proxy, headers=headers, verify=False, timeout=5, params=params)
+                # response = requests.get(url=NAVER_SHOPPINT_RANK_URL, headers=headers, verify=False, timeout=5, params=params)
             except (ProxyError, SSLError, ConnectTimeout, ReadTimeout, ConnectionError, ChunkedEncodingError):
                 print("proxy connection error.")
                 continue
@@ -72,9 +74,12 @@ class NaverRankService():
         proxyUtils.raiseProxyPriority(proxyAddress)
         return productList
 
-    def requestSearchPage(self, pageIndex, proxyUtils):
+    async def requestSearchPage(self, pageIndex, proxyUtils):
+        print(pageIndex)
         # get response for naver ranking page
-        searchResponse = self.getCurrentPageResponse(pageIndex, proxyUtils)
+        # getCurrentPageResponse 코루틴 등록
+        searchResponse = await asyncio.create_task(self.getCurrentPageResponse(pageIndex, proxyUtils))
+        # searchResponse = await self.getCurrentPageResponse(pageIndex, proxyUtils)
 
         try:
             # 여러 상품이 노출될 수 있으므로 list로 return
@@ -114,32 +119,51 @@ class NaverRankService():
                 if dto.rank != 0:
                     result.append(dto.__dict__)
             
-            time.sleep(2)
+            await asyncio.sleep(2)
             return result
         except KeyError as e:
             raise CustomException(f"not found value for {e}")
         except AttributeError as e:
             raise CustomException(e)
-
-    def searchRank(self):
+    
+    async def searchRank(self):
         NaverRankService.startTime = time.perf_counter()
         proxyUtils = ProxyUtils(MAX_SEARCH_PAGE_SIZE)
         
-        # 멀티쓰레드 생성
-        # MAX_SEARCH_PAGE_SIZE 만큼 반복
-        rankDtos = []
+        # asyncio.gather()로 비동기로 여러개의 작업을 등록
+        # return_exceptions=True면 예외가 핸들링되지 않고 예외 클래스 리턴됨. False면 첫 번째 발생한 예외가 대기중인 작업에 전파되고 예외핸들링 가능.
         results = []
-        with futures.ThreadPoolExecutor() as executor:
-            rankDtos = [executor.submit(self.requestSearchPage, i+1, proxyUtils) for i in range(MAX_SEARCH_PAGE_SIZE)]
+        try:
+            responses = await asyncio.gather(*[self.requestSearchPage(i+1, proxyUtils) for i in range(MAX_SEARCH_PAGE_SIZE)], return_exceptions=False)
 
-            try:
-                for f in futures.as_completed(rankDtos):
-                    results.extend(f.result())
-            except TimeoutError:
-                # wait=True로 설정한다면 실행중인 모든 작업이 완료될 때까지 호출이 반환되지 않는다
-                # cancel_futures가 True이면 보류 중인 모든 Future가 취소된다. 완료되거나 실행 중인 Future는 취소되지 않음.
-                # cancel_future가 False이면 보류 중인 Future가 취소되지 않는다. 대기상태는 계속해서 실행됨
-                executor.shutdown(wait=False, cancel_futures=True)
-                raise TimeoutError("request timed out.")
-
+            for response in responses:
+                results.extend(response)
+                
+        except TimeoutError:
+            raise TimeoutError("request time out.")
+        
         return results
+
+    # async def setTimer(self, num):
+    #     print("setTimer!" + str(num))
+    #     start = time.time()
+    #     await asyncio.create_task(self.testFunc(num))
+    #     end = time.time()
+        
+    #     print(f"총 소요시간{end - start}")
+        
+    # async def testFunc(self, num):
+    #     print(num)
+    #     await asyncio.sleep(5)
+
+    # async def searchStart(self):
+    #     results = []
+    #     try:
+    #         results = await asyncio.gather(*[self.setTimer(i+1) for i in range(3)], return_exceptions=False)
+    #     except TimeoutError:
+    #         print("tme otu@")
+    #     except asyncio.TimeoutError:
+    #         print("asyncio timeout!")
+        
+    #     return results
+

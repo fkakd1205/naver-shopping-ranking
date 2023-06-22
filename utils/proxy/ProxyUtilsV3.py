@@ -99,7 +99,6 @@ class ProxyUtils():
     # proxy server address 순서대로 조회
     def getProxyInOrder(self):
         proxyAddress = None
-
         # 조회된 proxy server가 없는 경우
         if(len(self.proxies) <= 0):
             raise CustomException("https proxy server not available.")

@@ -2,9 +2,10 @@ from flask_restx import Namespace, Resource
 from http import HTTPStatus
 from flask import request
 import time
+import asyncio
 
 from domain.message.dto.MessageDto import MessageDto
-from domain.naver_rank.service.NaverRankServiceV2 import NaverRankService
+from domain.naver_rank.service.NaverRankServiceV3 import NaverRankService
 
 NaverRankApi = Namespace('NaverRankApi')
 
@@ -25,11 +26,11 @@ class NaverRank(Resource):
 
         start = time.perf_counter()
         naverRankService = NaverRankService(keyword, mallName)
-        message.setData(naverRankService.searchRank())
+        message.setData(asyncio.run(naverRankService.searchRank()))
         message.setStatus(HTTPStatus.OK)
         message.setMessage("success")
         finish = time.perf_counter()
 
-        print(finish - start)
+        print(f"api 응답완료 : {finish - start}")
         return message.__dict__, message.statusCode
     
