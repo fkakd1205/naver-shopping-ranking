@@ -39,8 +39,8 @@ class NaverRankService():
         # 프록시 서버를 이용해 api request가 성공할 때까지
         while(True):
             print(TimeUtils.getDifferenceFromCurrentTime(NaverRankService.startTime))
-            if(REQUEST_TIMEOUT_SIZE < TimeUtils.getDifferenceFromCurrentTime(NaverRankService.startTime)): 
-                raise TimeoutError
+            # if(REQUEST_TIMEOUT_SIZE < TimeUtils.getDifferenceFromCurrentTime(NaverRankService.startTime)): 
+            #     raise TimeoutError
 
             proxyAddress = proxyUtils.getProxyInOrder()
             proxy = {'http': proxyAddress, 'https': proxyAddress}
@@ -79,7 +79,6 @@ class NaverRankService():
         # get response for naver ranking page
         # getCurrentPageResponse 코루틴 등록
         searchResponse = await asyncio.create_task(self.getCurrentPageResponse(pageIndex, proxyUtils))
-        # searchResponse = await self.getCurrentPageResponse(pageIndex, proxyUtils)
 
         try:
             # 여러 상품이 노출될 수 있으므로 list로 return
@@ -126,6 +125,18 @@ class NaverRankService():
         except AttributeError as e:
             raise CustomException(e)
     
+    async def setTimeout(self):
+        print("hi")
+        await asyncio.sleep(5)
+        print("timeout!")
+        raise TimeoutError
+    
+    async def searchTest(self):
+        await asyncio.gather(*[self.setTimeout(), self.searchRank2()])
+
+    async def searchRank2(self):
+        await self.searchRank()
+        
     async def searchRank(self):
         NaverRankService.startTime = time.perf_counter()
         proxyUtils = ProxyUtils(MAX_SEARCH_PAGE_SIZE)
@@ -133,6 +144,7 @@ class NaverRankService():
         # asyncio.gather()로 비동기로 여러개의 작업을 등록
         # return_exceptions=True면 예외가 핸들링되지 않고 예외 클래스 리턴됨. False면 첫 번째 발생한 예외가 대기중인 작업에 전파되고 예외핸들링 가능.
         results = []
+        responses = []
         try:
             responses = await asyncio.gather(*[self.requestSearchPage(i+1, proxyUtils) for i in range(MAX_SEARCH_PAGE_SIZE)], return_exceptions=False)
 
@@ -143,3 +155,4 @@ class NaverRankService():
             raise TimeoutError("request time out.")
         
         return results
+    

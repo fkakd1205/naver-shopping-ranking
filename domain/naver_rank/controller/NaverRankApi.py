@@ -5,7 +5,7 @@ import time
 import asyncio
 
 from domain.message.dto.MessageDto import MessageDto
-from domain.naver_rank.service.NaverRankServiceV3 import NaverRankService
+from domain.naver_rank.service.NaverRankServiceV5 import NaverRankService
 
 NaverRankApi = Namespace('NaverRankApi')
 
