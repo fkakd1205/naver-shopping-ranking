@@ -7,7 +7,7 @@ from fake_useragent import UserAgent
 import asyncio
 
 from domain.naver_rank.dto.NaverRankDto import NaverRankDto
-from domain.exception.types.CustomException import CustomException
+from exception.types.CustomException import CustomException
 from utils.proxy.ProxyUtilsV3 import ProxyUtils
 from utils.time.TimeUtils import TimeUtils
 

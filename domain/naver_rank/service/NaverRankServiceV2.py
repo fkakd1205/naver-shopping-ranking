@@ -7,7 +7,7 @@ from requests.exceptions import ProxyError, SSLError, ConnectTimeout, ReadTimeou
 from fake_useragent import UserAgent
 
 from domain.naver_rank.dto.NaverRankDto import NaverRankDto
-from domain.exception.types.CustomException import CustomException
+from exception.types.CustomException import CustomException
 from utils.proxy.ProxyUtilsV3 import ProxyUtils
 from utils.time.TimeUtils import TimeUtils
 

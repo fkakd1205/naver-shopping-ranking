@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from threading import Lock
 
-from domain.exception.types.CustomException import CustomException
+from exception.types.CustomException import CustomException
 
 class ProxyUtilsV2():
     def __init__(self):

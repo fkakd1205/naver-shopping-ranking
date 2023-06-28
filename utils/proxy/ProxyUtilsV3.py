@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from requests.exceptions import ConnectTimeout, ConnectionError
 
-from domain.exception.types.CustomException import CustomException
+from exception.types.CustomException import CustomException
 
 MULTIPLE_COUNT = 5
 

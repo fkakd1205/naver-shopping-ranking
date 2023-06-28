@@ -1,7 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 
-from domain.exception.types.CustomException import CustomException
+from exception.types.CustomException import CustomException
 
 class ProxyUtils():
     

@@ -5,7 +5,7 @@ import urllib3
 
 from domain.naver_rank.controller.NaverRankApi import NaverRankApi
 from domain.test.TestApi import TestApi
-from domain.exception.ExceptionHandler import ExceptionHandler
+from exception.ExceptionHandler import ExceptionHandler
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
