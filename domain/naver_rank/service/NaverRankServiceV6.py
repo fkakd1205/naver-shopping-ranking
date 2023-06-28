@@ -9,11 +9,11 @@ from aiohttp.client_exceptions import ClientProxyConnectionError, ClientOSError,
 from domain.naver_rank.dto.NaverRankDto import NaverRankDto
 from exception.types.CustomException import CustomException
 
+PROXY_REQUEST_URL = "http://kr.smartproxy.com:10000"
+NAVER_SHOPPINT_RANK_URL = "https://search.shopping.naver.com/search/all"
 DEFAULT_PAGINGSIZE = 80
 MAX_SEARCH_PAGE_SIZE = 2
 
-PROXY_REQUEST_URL = "http://kr.smartproxy.com:10000"
-NAVER_SHOPPINT_RANK_URL = "https://search.shopping.naver.com/search/all"
 TOTAL_REQUEST_TIMEOUT_SIZE = 60
 UNIT_REQUEST_TIMEOUT_SIZE = 30
 
@@ -51,7 +51,7 @@ class NaverRankService():
                         )
                     response = await res.text()
             except (ConnectionRefusedError, ClientProxyConnectionError, ClientOSError, ClientHttpProxyError):
-                print("proxy connection error.")
+                print("proxy connection error")
                 continue
             except asyncio.TimeoutError:
                 print("proxy connection time out")
@@ -67,7 +67,7 @@ class NaverRankService():
                 productList = productJsonObj['props']['pageProps']['initialState']['products']['list']
             except (KeyError, AttributeError, UnboundLocalError, TypeError):
                 # 응답은 넘어오지만, response attribute가 올바르지 않는다면 다음 프록시 요청
-                print("response attribute error.")
+                print("response attribute error")
                 continue
             
             return productList
@@ -123,29 +123,26 @@ class NaverRankService():
             raise CustomException(f"not found value for {e}")
         except AttributeError as e:
             raise CustomException(e)
-
+    
     # check timeout and search request page
-    # 전체 요청시간이 TOTAL_REQUEST_TIMEOUT_SIZE를 초과한다면 기다리지 않고 예외처리
     async def searchRank(self):
-        
-        task = asyncio.create_task(self.searchTotalPage())
-
-        try:
-            await asyncio.wait_for(task, timeout=TOTAL_REQUEST_TIMEOUT_SIZE)
-        except (asyncio.TimeoutError) as e:
-            task.cancel()
-            raise TimeoutError(e)
-        
-        return task.result()
-
-    async def searchTotalPage(self):
         results = []
 
         # MAX_SEARCH_PAGE_SIZE 만큼 비동기 요청
         rankDtos = [self.requestPageAndGetRankDtos(i+1) for i in range(MAX_SEARCH_PAGE_SIZE)]
-        rankResults = await asyncio.gather(*rankDtos)
+        tasks = asyncio.gather(*rankDtos)
 
-        for result in rankResults:
+        # 전체 요청시간이 TOTAL_REQUEST_TIMEOUT_SIZE를 초과한다면 기다리지 않고 예외처리
+        try:
+            await asyncio.wait_for(tasks, timeout=TOTAL_REQUEST_TIMEOUT_SIZE)
+        except asyncio.TimeoutError:
+            tasks.cancel()
+            raise TimeoutError("request time out")
+        
+        for result in tasks.result():
             results.extend(result)
 
         return results
+
+
+
