@@ -12,16 +12,16 @@ from exception.types.CustomException import CustomException
 PROXY_REQUEST_URL = "http://kr.smartproxy.com:10000"
 NAVER_SHOPPINT_RANK_URL = "https://search.shopping.naver.com/search/all"
 DEFAULT_PAGINGSIZE = 80
-MAX_SEARCH_PAGE_SIZE = 2
 
 TOTAL_REQUEST_TIMEOUT_SIZE = 60
 UNIT_REQUEST_TIMEOUT_SIZE = 30
 
 class NaverRankService():
 
-    def __init__(self, keyword, mallName):
+    def __init__(self, keyword, mallName, pageSize):
         self.keyword = keyword
         self.mallName = mallName
+        self.pageSize = pageSize
 
     async def getCurrentPageResponse(self, pageIndex):
         params = {
@@ -59,7 +59,7 @@ class NaverRankService():
             except aiohttp.ServerDisconnectedError:
                 print("server does not accept request")
                 continue
-        
+
             try:
                 dom = BeautifulSoup(response, "html.parser")
                 resultObj = dom.select_one("#__NEXT_DATA__").text
@@ -90,31 +90,71 @@ class NaverRankService():
                     dto.setRank(rank)
                     dto.setExcludedAdRank(item['rank'])
                     dto.setProductTitle(item['productTitle'])
-                    dto.setPrice(item['price'])
+                    dto.setPrice(int(item['price']))
                     dto.setPage(pageIndex)
                     dto.setMallProductId(item['mallProductId'])
+                    dto.setReviewCount(item['reviewCount'])
+                    dto.setScoreInfo(item['scoreInfo'])
+                    dto.setRegistrationDate(item['openDate'])
+                    dto.setThumbnailUrl(item['imageUrl'])
+                    dto.setPurchaseCount(item['purchaseCnt'])
+                    dto.setDeliveryFee(int(item['deliveryFeeContent']))
+                    dto.setCategory1Name(item['category1Name'])
+                    dto.setCategory2Name(item['category2Name'])
+                    dto.setCategory3Name(item['category3Name'])
+                    dto.setCategory4Name(item['category4Name'])
+                    dto.setKeepCount(item.get('keepCnt', 0))
+
                     if('adId' in item):
                         dto.setIsAdvertising(True)
 
                     dtos.append(dto.__dict__)
+                    # continue
 
                 # 가격비교 쇼핑몰 검색
                 # lowMallList = null or []
                 if (item['lowMallList'] is not None):
+                    # 가격비교 상품들의 공통 필드
                     comparitionRank = 0
+                    productTitle = item['productTitle']
+                    excludedAdRank = item['rank']
+                    reviewCount = item['reviewCount']
+                    scoreInfo = item['scoreInfo']
+                    registrationDate = item['openDate']
+                    thumbnailUrl = item['imageUrl']
+                    purchaseCount = item['purchaseCnt']
+                    keepCount = item.get('keepCnt', 0)
+                    deliveryFee = item['deliveryFeeContent']
+                    category1Name = item['category1Name']
+                    category2Name = item['category2Name']
+                    category3Name = item['category3Name']
+                    category4Name = item['category4Name']
+                    lowMallCount = item['mallCount']
+
                     for comparitionItem in item['lowMallList']:
                         comparitionRank += 1
                         if (comparitionItem['name'] == self.mallName):
                             dto = NaverRankDto(self.mallName)
                             dto.setRank(rank)
-                            dto.setExcludedAdRank(item['rank'])
+                            dto.setExcludedAdRank(excludedAdRank)
                             dto.setIsPriceComparision(True)
                             dto.setComparisionRank(comparitionRank)
-                            dto.setProductTitle(item['productTitle'])
-                            dto.setPrice(comparitionItem['price'])
+                            dto.setProductTitle(productTitle)
+                            dto.setPrice(int(comparitionItem['price']))
                             dto.setPage(pageIndex)
                             dto.setMallProductId(comparitionItem['mallPid'])
-                            
+                            dto.setReviewCount(reviewCount)
+                            dto.setScoreInfo(scoreInfo)
+                            dto.setRegistrationDate(registrationDate)
+                            dto.setThumbnailUrl(thumbnailUrl)
+                            dto.setPurchaseCount(purchaseCount)
+                            dto.setKeepCount(keepCount)
+                            dto.setDeliveryFee(int(deliveryFee))
+                            dto.setCategory1Name(category1Name)
+                            dto.setCategory2Name(category2Name)
+                            dto.setCategory3Name(category3Name)
+                            dto.setCategory4Name(category4Name)
+                            dto.setLowMallCount(lowMallCount)
                             dtos.append(dto.__dict__)
 
                 result.extend(dtos)
@@ -128,8 +168,8 @@ class NaverRankService():
     async def searchRank(self):
         results = []
 
-        # MAX_SEARCH_PAGE_SIZE 만큼 비동기 요청
-        rankDtos = [self.requestPageAndGetRankDtos(i+1) for i in range(MAX_SEARCH_PAGE_SIZE)]
+        # pageSize 만큼 비동기 요청
+        rankDtos = [self.requestPageAndGetRankDtos(i+1) for i in range(self.pageSize)]
         tasks = asyncio.gather(*rankDtos)
 
         # 전체 요청시간이 TOTAL_REQUEST_TIMEOUT_SIZE를 초과한다면 기다리지 않고 예외처리

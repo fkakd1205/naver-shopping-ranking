@@ -1,13 +1,11 @@
 import requests
 from bs4 import BeautifulSoup
-from threading import Lock
 
 from exception.types.CustomException import CustomException
 
 class ProxyUtilsV2():
     def __init__(self):
         self.proxies = ProxyUtilsV2.initProxies()
-        self.lock = Lock()
         self.proxyServerIndex = 0
 
     def setProxyServerIndex(self, proxyServerIndex):
@@ -39,16 +37,11 @@ class ProxyUtilsV2():
         
     # proxy server address 순서대로 조회
     def getProxyInOrder(self):
-        # thread lock 설정. proxyServerIndex를 순서대로 가져오기 위해
-        self.lock.acquire()
         if(len(self.proxies) <= self.proxyServerIndex):
-            self.lock.release()
             raise CustomException("can't connect all proxy servers.")
         
         proxyAddress = self.proxies[self.proxyServerIndex]
         self.setProxyServerIndex(self.proxyServerIndex + 1)
-        self.lock.release()
-        # thread lock 해제.
 
         return proxyAddress
 

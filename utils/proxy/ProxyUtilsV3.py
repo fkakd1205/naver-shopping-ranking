@@ -83,6 +83,7 @@ class ProxyUtils():
 
             result = []
             for listEl in proxyList:
+                # https 여부
                 if(listEl.select_one(".hx").text == "yes"):
                     ip = listEl.select_one("td:nth-child(1)").text
                     port = listEl.select_one("td:nth-child(2)").text

@@ -17,6 +17,7 @@ CORS(
 )
 
 api.add_namespace(NaverRankApi, "/api/v1/rank/naver")
+api.add_namespace(TestApi, "/api/v1/test")
 
 ExceptionHandler(api)
 
