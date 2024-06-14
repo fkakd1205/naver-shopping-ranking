@@ -6,6 +6,7 @@ import urllib3
 from domain.naver_rank.controller.NaverRankApi import NaverRankApi
 from domain.test.TestApi import TestApi
 from domain.proxy_test.controller.ProxyTestApi import ProxyTestApi
+from domain.async_test.controller.AsyncTestApi import AsyncTestApi
 
 from exception.ExceptionHandler import ExceptionHandler
 
@@ -21,6 +22,7 @@ CORS(
 api.add_namespace(NaverRankApi, "/api/v1/rank/naver")
 api.add_namespace(TestApi, "/api/v1/test")
 api.add_namespace(ProxyTestApi, "/api/v1/proxy")
+api.add_namespace(AsyncTestApi, "/api/v1/async")
 
 ExceptionHandler(api)
 
